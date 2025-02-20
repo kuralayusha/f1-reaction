@@ -266,25 +266,36 @@ export default function Home() {
 
       <div className="max-w-md w-full space-y-6 sm:space-y-8">
         <h1 className="text-3xl sm:text-4xl font-bold text-center mb-4 sm:mb-8">
-          F1 Reaction Test 🏎️
+          F1 Reflex Test 🏎️
         </h1>
 
         {gameState === "idle" && (
           <div className="space-y-3 sm:space-y-4 text-center mb-6 sm:mb-8">
-            <p className="text-lg sm:text-xl">How to Play:</p>
-            <ul className="space-y-1.5 sm:space-y-2 text-base sm:text-lg">
+            <h2 className="text-lg sm:text-xl">How to Play?</h2>
+            <ul
+              className="space-y-1.5 sm:space-y-2 text-base sm:text-lg"
+              aria-label="Game rules"
+            >
               <li>1. Click the screen or press spacebar 🖱️</li>
               <li>2. Five red lights will turn on sequentially 🚥</li>
               <li>3. Click immediately when lights go out! ⚡</li>
               <li>4. Early click will result in a penalty 🚫</li>
             </ul>
-            <p className="text-lg sm:text-xl mt-3 sm:mt-4">
+            <p
+              className="text-lg sm:text-xl mt-3 sm:mt-4"
+              role="status"
+              aria-live="polite"
+            >
               Click anywhere to start 🎮
             </p>
           </div>
         )}
 
-        <div className="flex flex-col gap-3 sm:gap-4 mb-6 sm:mb-8">
+        <div
+          className="flex flex-col gap-3 sm:gap-4 mb-6 sm:mb-8"
+          role="alert"
+          aria-label="F1 lights"
+        >
           {/* Top row of lights */}
           <div className="flex justify-center space-x-3 sm:space-x-4">
             {lights.map((isOn, index) => (
@@ -293,6 +304,8 @@ export default function Home() {
                 className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full ${
                   isOn ? "bg-red-600" : "bg-red-900"
                 } transition-colors duration-200 shadow-lg`}
+                role="img"
+                aria-label={isOn ? "Light on" : "Light off"}
               />
             ))}
           </div>
@@ -305,18 +318,24 @@ export default function Home() {
                 className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full ${
                   isOn ? "bg-red-600" : "bg-red-900"
                 } transition-colors duration-200 shadow-lg`}
+                role="img"
+                aria-label={isOn ? "Light on" : "Light off"}
               />
             ))}
           </div>
         </div>
 
         {gameState === "finished" && !showModal && (
-          <div className="text-center space-y-3 sm:space-y-4">
+          <div
+            className="text-center space-y-3 sm:space-y-4"
+            role="status"
+            aria-live="polite"
+          >
             {!jumpStart && (
               <>
-                <p className="text-2xl sm:text-3xl font-bold">
+                <h2 className="text-2xl sm:text-3xl font-bold">
                   {reactionTime?.toFixed(3)} ms ⚡
-                </p>
+                </h2>
                 <p className="text-lg sm:text-xl">{getReactionMessage()}</p>
               </>
             )}
@@ -326,31 +345,43 @@ export default function Home() {
 
       {/* Score Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="score-modal-title"
+        >
           <div
             className="bg-gray-800 p-4 sm:p-6 rounded-lg max-w-md w-full"
             onClick={(e) => e.stopPropagation()}
           >
             {jumpStart ? (
               <>
-                <p className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-center text-red-500">
+                <h2
+                  id="score-modal-title"
+                  className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-center text-red-500"
+                >
                   {getJumpStartMessage()}
-                </p>
+                </h2>
                 <button
                   onClick={() => {
                     setShowModal(false);
                     setGameState("idle");
                   }}
                   className="w-full py-2.5 sm:py-3 rounded font-bold bg-gray-600 hover:bg-gray-700 transition-colors"
+                  aria-label="Close"
                 >
                   Close
                 </button>
               </>
             ) : (
               <>
-                <p className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 text-center">
+                <h2
+                  id="score-modal-title"
+                  className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 text-center"
+                >
                   {reactionTime?.toFixed(3)} ms ⚡
-                </p>
+                </h2>
                 <p className="text-lg sm:text-xl mb-4 sm:mb-6 text-center">
                   {getReactionMessage()}
                 </p>
@@ -366,6 +397,7 @@ export default function Home() {
                     autoFocus
                     required
                     minLength={1}
+                    aria-label="Name"
                   />
 
                   <button
@@ -376,6 +408,7 @@ export default function Home() {
                         ? "bg-green-600 hover:bg-green-700"
                         : "bg-gray-600 cursor-not-allowed"
                     }`}
+                    aria-label="Save Score"
                   >
                     Save Score
                   </button>
@@ -388,28 +421,42 @@ export default function Home() {
 
       {/* Leaderboard Modal */}
       {showLeaderboard && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="leaderboard-modal-title"
+        >
           <div
             className="bg-gray-800 p-4 sm:p-6 rounded-lg max-w-md w-full"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4 sm:mb-6">
-              <h2 className="text-xl sm:text-2xl font-bold">
+              <h2
+                id="leaderboard-modal-title"
+                className="text-xl sm:text-2xl font-bold"
+              >
                 Top 10 Reactions 🏆
               </h2>
               <button
                 onClick={() => setShowLeaderboard(false)}
                 className="text-gray-400 hover:text-white"
+                aria-label="Close"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-2 sm:space-y-4">
+            <div
+              className="space-y-2 sm:space-y-4"
+              role="list"
+              aria-label="Leaderboard"
+            >
               {leaderboardData.map((entry, index) => (
                 <div
                   key={entry.id}
                   className="flex items-center justify-between p-2 sm:p-3 bg-gray-700 rounded"
+                  role="listitem"
                 >
                   <div className="flex items-center gap-2 sm:gap-3">
                     <span className="text-lg sm:text-xl font-bold">
@@ -426,7 +473,8 @@ export default function Home() {
                     </span>
                   </div>
                   <span className="text-yellow-400 font-mono text-base sm:text-lg">
-                    {entry.reaction_time.toFixed(3)} ms
+                    {Math.floor(entry.reaction_time)}.
+                    {Math.floor((entry.reaction_time % 1) * 10)} MS
                   </span>
                 </div>
               ))}
