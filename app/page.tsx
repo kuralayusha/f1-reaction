@@ -1,101 +1,445 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect, useRef, useCallback } from "react";
+import useSound from "use-sound";
+import {
+  supabase,
+  leaderboardActions,
+  LeaderboardEntry,
+} from "../lib/supabase";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [gameState, setGameState] = useState<
+    "idle" | "ready" | "countdown" | "waiting" | "finished"
+  >("idle");
+  const [lights, setLights] = useState<boolean[]>([
+    false,
+    false,
+    false,
+    false,
+    false,
+  ]);
+  const [reactionTime, setReactionTime] = useState<number | null>(null);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [jumpStart, setJumpStart] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboardData, setLeaderboardData] = useState<LeaderboardEntry[]>(
+    []
+  );
+  const [playerName, setPlayerName] = useState("");
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const currentLightRef = useRef(-1);
+  const lastActionTimeRef = useRef<number>(0);
+  const MIN_ACTION_DELAY = 300; // Minimum time between actions in milliseconds
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Load saved player name on mount
+  useEffect(() => {
+    const savedName = localStorage.getItem("f1_player_name");
+    if (savedName) setPlayerName(savedName);
+  }, []);
+
+  // Monitor state changes for debugging
+  useEffect(() => {
+    console.log("Game State Changed:", gameState);
+  }, [gameState]);
+
+  useEffect(() => {
+    console.log("Lights Changed:", lights);
+  }, [lights]);
+
+  useEffect(() => {
+    console.log("Start Time:", startTime);
+  }, [startTime]);
+
+  const canPerformAction = useCallback(() => {
+    const now = performance.now();
+    if (now - lastActionTimeRef.current < MIN_ACTION_DELAY) {
+      return false;
+    }
+    lastActionTimeRef.current = now;
+    return true;
+  }, []);
+
+  const startGame = useCallback(() => {
+    console.log("🎮 Starting Game...");
+
+    // Cleanup operations
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+
+    setGameState("ready");
+    setJumpStart(false);
+    setReactionTime(null);
+    setLights([false, false, false, false, false]);
+    setStartTime(null);
+    currentLightRef.current = -1;
+
+    // Add a short delay to ensure state updates are processed
+    setTimeout(() => {
+      intervalRef.current = setInterval(() => {
+        currentLightRef.current++;
+        console.log("🚥 Light Sequence:", currentLightRef.current);
+
+        if (currentLightRef.current < 5) {
+          setLights((prev) => {
+            const newLights = [...prev];
+            newLights[currentLightRef.current] = true;
+            console.log("💡 Setting light", currentLightRef.current, "to ON");
+            return newLights;
+          });
+        } else {
+          console.log("🔄 All lights on, preparing for random delay...");
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
+
+          const randomDelay = 1000 + Math.random() * 2000;
+          console.log("⏳ Setting random delay:", randomDelay.toFixed(2), "ms");
+
+          timeoutRef.current = setTimeout(() => {
+            console.log("🎯 Lights out! Starting reaction test...");
+            setLights([false, false, false, false, false]);
+            setStartTime(performance.now());
+            setGameState("waiting");
+            timeoutRef.current = null;
+          }, randomDelay);
+        }
+      }, 1000);
+    }, 100);
+  }, []);
+
+  const saveScore = async () => {
+    // Jump start durumunda kaydetme
+    if (jumpStart) {
+      setShowModal(false);
+      setGameState("idle");
+      return;
+    }
+
+    const trimmedName = playerName.trim();
+    if (!reactionTime || !trimmedName) return;
+
+    try {
+      const deviceType = "web";
+      await leaderboardActions.addScore({
+        player_name: trimmedName,
+        reaction_time: reactionTime,
+        device_type: deviceType,
+      });
+
+      localStorage.setItem("f1_player_name", trimmedName);
+      setShowModal(false);
+      setGameState("idle");
+    } catch (error) {
+      console.error("Error saving score:", error);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      saveScore();
+    }
+  };
+
+  const handleClick = useCallback(() => {
+    // Modal veya leaderboard açıkken tıklamaları engelle
+    if (showModal || showLeaderboard) return;
+
+    if (!canPerformAction()) return;
+    console.log("👆 Click detected in state:", gameState);
+
+    if (gameState === "idle") {
+      startGame();
+    } else if (gameState === "ready" || gameState === "waiting") {
+      if (startTime === null || gameState === "ready") {
+        console.log("⚠️ Jump start detected!");
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        setJumpStart(true);
+        setGameState("finished");
+        setLights([false, false, false, false, false]);
+        setShowModal(true);
+      } else {
+        const currentTime = performance.now();
+        const reaction = currentTime - startTime;
+        console.log("✨ Reaction time:", reaction.toFixed(3), "ms");
+        setReactionTime(reaction);
+        setGameState("finished");
+        setShowModal(true);
+      }
+    }
+  }, [
+    gameState,
+    startTime,
+    startGame,
+    canPerformAction,
+    showModal,
+    showLeaderboard,
+  ]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Modal veya leaderboard açıkken space tuşunu engelle
+      if (showModal || showLeaderboard) return;
+
+      if (event.code === "Space" && !event.repeat) {
+        handleClick();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [handleClick, showModal, showLeaderboard]);
+
+  const getReactionMessage = () => {
+    if (!reactionTime) return "";
+
+    if (reactionTime < 150)
+      return "🏎️ Are you secretly Lewis Hamilton? That was insane! 🤯";
+    if (reactionTime < 200) return "🚀 F1 teams want to know your location! 🔥";
+    if (reactionTime < 250)
+      return "⚡ Quick enough to catch a falling phone! 📱";
+    if (reactionTime < 300)
+      return "🎯 Not bad, but my grandma is faster... jk! 👵";
+    if (reactionTime < 350) return "🐢 Getting there... maybe try coffee? ☕";
+    if (reactionTime < 400) return "🦥 Are you playing in slow motion? 🎬";
+    if (reactionTime < 500) return "🐌 Did you fall asleep mid-game? 😴";
+    if (reactionTime < 600) return "🧟‍♂️ Internet Explorer, is that you? 🤔";
+    if (reactionTime < 800)
+      return "🦕 Even dinosaurs were faster than this! 😅";
+    return "🐨 Plot twist: Sloths are asking for racing tips! 🌿";
+  };
+
+  const getJumpStartMessage = () => {
+    const messages = [
+      "🚫 Too eager! This isn't a drag race! 🏎️",
+      "⚠️ Whoa there, Speed Racer! False start! 🏁",
+      "😅 Someone's had too much energy drink! ⚡",
+      "🤦‍♂️ The lights weren't even out yet! 🚦",
+      "😂 Patience young grasshopper... 🦗",
+      "🎮 This isn't your typical button masher! 🕹️",
+      "🚨 5-second penalty for being too excited! 📝",
+      "🏃‍♂️ Running before learning to walk, eh? 🚶‍♂️",
+    ];
+    return messages[Math.floor(Math.random() * messages.length)];
+  };
+
+  // Load leaderboard data
+  const loadLeaderboard = async () => {
+    try {
+      const data = await leaderboardActions.getTopScores(10);
+      setLeaderboardData(data);
+    } catch (error) {
+      console.error("Error loading leaderboard:", error);
+    }
+  };
+
+  return (
+    <main
+      className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white p-4 relative"
+      onClick={handleClick}
+    >
+      {/* Leaderboard Button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          loadLeaderboard();
+          setShowLeaderboard(true);
+        }}
+        className="absolute top-4 left-4 p-2 rounded-full bg-yellow-600 hover:bg-yellow-700 transition-colors"
+      >
+        🏆
+      </button>
+
+      <div className="max-w-md w-full space-y-6 sm:space-y-8">
+        <h1 className="text-3xl sm:text-4xl font-bold text-center mb-4 sm:mb-8">
+          F1 Reaction Test 🏎️
+        </h1>
+
+        {gameState === "idle" && (
+          <div className="space-y-3 sm:space-y-4 text-center mb-6 sm:mb-8">
+            <p className="text-lg sm:text-xl">How to Play:</p>
+            <ul className="space-y-1.5 sm:space-y-2 text-base sm:text-lg">
+              <li>1. Click the screen or press spacebar 🖱️</li>
+              <li>2. Five red lights will turn on sequentially 🚥</li>
+              <li>3. Click immediately when lights go out! ⚡</li>
+              <li>4. Early click will result in a penalty 🚫</li>
+            </ul>
+            <p className="text-lg sm:text-xl mt-3 sm:mt-4">
+              Click anywhere to start 🎮
+            </p>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3 sm:gap-4 mb-6 sm:mb-8">
+          {/* Top row of lights */}
+          <div className="flex justify-center space-x-3 sm:space-x-4">
+            {lights.map((isOn, index) => (
+              <div
+                key={`top-${index}`}
+                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full ${
+                  isOn ? "bg-red-600" : "bg-red-900"
+                } transition-colors duration-200 shadow-lg`}
+              />
+            ))}
+          </div>
+
+          {/* Bottom row of lights */}
+          <div className="flex justify-center space-x-3 sm:space-x-4">
+            {lights.map((isOn, index) => (
+              <div
+                key={`bottom-${index}`}
+                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full ${
+                  isOn ? "bg-red-600" : "bg-red-900"
+                } transition-colors duration-200 shadow-lg`}
+              />
+            ))}
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+
+        {gameState === "finished" && !showModal && (
+          <div className="text-center space-y-3 sm:space-y-4">
+            {!jumpStart && (
+              <>
+                <p className="text-2xl sm:text-3xl font-bold">
+                  {reactionTime?.toFixed(3)} ms ⚡
+                </p>
+                <p className="text-lg sm:text-xl">{getReactionMessage()}</p>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Score Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div
+            className="bg-gray-800 p-4 sm:p-6 rounded-lg max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {jumpStart ? (
+              <>
+                <p className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6 text-center text-red-500">
+                  {getJumpStartMessage()}
+                </p>
+                <button
+                  onClick={() => {
+                    setShowModal(false);
+                    setGameState("idle");
+                  }}
+                  className="w-full py-2.5 sm:py-3 rounded font-bold bg-gray-600 hover:bg-gray-700 transition-colors"
+                >
+                  Close
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4 text-center">
+                  {reactionTime?.toFixed(3)} ms ⚡
+                </p>
+                <p className="text-lg sm:text-xl mb-4 sm:mb-6 text-center">
+                  {getReactionMessage()}
+                </p>
+
+                <div className="space-y-3 sm:space-y-4">
+                  <input
+                    type="text"
+                    value={playerName}
+                    onChange={(e) => setPlayerName(e.target.value.trim())}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Enter your name"
+                    className="w-full p-2 rounded bg-gray-700 text-white text-base sm:text-lg"
+                    autoFocus
+                    required
+                    minLength={1}
+                  />
+
+                  <button
+                    onClick={saveScore}
+                    disabled={!playerName.trim()}
+                    className={`w-full py-2.5 sm:py-3 rounded font-bold transition-colors ${
+                      playerName.trim()
+                        ? "bg-green-600 hover:bg-green-700"
+                        : "bg-gray-600 cursor-not-allowed"
+                    }`}
+                  >
+                    Save Score
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Leaderboard Modal */}
+      {showLeaderboard && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div
+            className="bg-gray-800 p-4 sm:p-6 rounded-lg max-w-md w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold">
+                Top 10 Reactions 🏆
+              </h2>
+              <button
+                onClick={() => setShowLeaderboard(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-2 sm:space-y-4">
+              {leaderboardData.map((entry, index) => (
+                <div
+                  key={entry.id}
+                  className="flex items-center justify-between p-2 sm:p-3 bg-gray-700 rounded"
+                >
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <span className="text-lg sm:text-xl font-bold">
+                      {index === 0
+                        ? "🥇"
+                        : index === 1
+                        ? "🥈"
+                        : index === 2
+                        ? "🥉"
+                        : `${index + 1}.`}
+                    </span>
+                    <span className="font-semibold text-base sm:text-lg">
+                      {entry.player_name}
+                    </span>
+                  </div>
+                  <span className="text-yellow-400 font-mono text-base sm:text-lg">
+                    {entry.reaction_time.toFixed(3)} ms
+                  </span>
+                </div>
+              ))}
+
+              {leaderboardData.length === 0 && (
+                <p className="text-center text-gray-400 text-base sm:text-lg">
+                  No records yet. Be the first! 🚀
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </main>
   );
 }
