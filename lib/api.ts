@@ -4,6 +4,7 @@ import { generateSignature } from "./utils/signature";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 // Ortak headers'ları oluşturan yardımcı fonksiyon
+
 const createHeaders = (data: any = {}) => ({
   "Content-Type": "application/json",
   "X-Client-Signature": generateSignature(data),
