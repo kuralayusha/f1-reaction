@@ -33,6 +33,9 @@ export default function Home() {
   const currentLightRef = useRef(-1);
   const lastActionTimeRef = useRef<number>(0);
   const MIN_ACTION_DELAY = 300; // Minimum time between actions in milliseconds
+  const [deviceType, setDeviceType] = useState(
+    typeof window !== "undefined" && window.innerWidth <= 768 ? "mobile" : "web"
+  );
 
   // Load saved player name on mount
   useEffect(() => {
@@ -52,6 +55,16 @@ export default function Home() {
   useEffect(() => {
     console.log("Start Time:", startTime);
   }, [startTime]);
+
+  // Ekran boyutu değişikliğini takip et
+  useEffect(() => {
+    const handleResize = () => {
+      setDeviceType(window.innerWidth <= 768 ? "mobile" : "web");
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const canPerformAction = useCallback(() => {
     const now = performance.now();
@@ -123,7 +136,6 @@ export default function Home() {
     if (!reactionTime || !trimmedName) return;
 
     try {
-      const deviceType = "web";
       await leaderboardActions.addScore({
         player_name: trimmedName,
         reaction_time: reactionTime,
