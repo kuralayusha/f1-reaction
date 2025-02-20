@@ -8,6 +8,9 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const createHeaders = (data: any = {}) => ({
   "Content-Type": "application/json",
   "X-Client-Signature": generateSignature(data),
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "*",
 });
 
 export const api = {
@@ -15,6 +18,8 @@ export const api = {
     const queryParams = { limit };
     const response = await fetch(`${API_BASE_URL}/api/leaderboard`, {
       headers: createHeaders(queryParams),
+      mode: "cors",
+      credentials: "include",
     });
 
     if (!response.ok) {
@@ -35,6 +40,8 @@ export const api = {
       method: "POST",
       headers: createHeaders(entry),
       body: JSON.stringify(entry),
+      mode: "cors",
+      credentials: "include",
     });
 
     if (!response.ok) {
@@ -52,6 +59,8 @@ export const api = {
       `${API_BASE_URL}/api/scores/${encodeURIComponent(playerName)}`,
       {
         headers: createHeaders(queryParams),
+        mode: "cors",
+        credentials: "include",
       }
     );
 
