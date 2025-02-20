@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import useSound from "use-sound";
 import { api } from "../lib/api";
 import { LeaderboardEntry } from "../lib/types";
+import { Toast } from "../components/Toast";
 
 export default function Home() {
   const [gameState, setGameState] = useState<
@@ -33,6 +34,10 @@ export default function Home() {
   const [deviceType, setDeviceType] = useState(
     typeof window !== "undefined" && window.innerWidth <= 768 ? "mobile" : "web"
   );
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "error" | "success";
+  } | null>(null);
 
   // Load saved player name on mount
   useEffect(() => {
@@ -122,7 +127,6 @@ export default function Home() {
   }, []);
 
   const saveScore = async () => {
-    // Jump start durumunda kaydetme
     if (jumpStart) {
       setShowModal(false);
       setGameState("idle");
@@ -144,9 +148,16 @@ export default function Home() {
       localStorage.setItem("f1_player_name", trimmedName);
       setShowModal(false);
       setGameState("idle");
+      setToast({
+        message: "Score saved successfully! 🎉",
+        type: "success",
+      });
     } catch (error: any) {
       console.error("Error saving score:", error);
-      alert(error.message || "Failed to save score. Please try again.");
+      setToast({
+        message: error.message || "Failed to save score. Please try again.",
+        type: "error",
+      });
     }
   };
 
@@ -254,8 +265,13 @@ export default function Home() {
     try {
       const data = await api.getTopScores(10);
       setLeaderboardData(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error loading leaderboard:", error);
+      setToast({
+        message:
+          error.message || "Failed to load leaderboard. Please try again.",
+        type: "error",
+      });
     }
   };
 
@@ -502,6 +518,14 @@ export default function Home() {
             </div>
           </div>
         </div>
+      )}
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </main>
   );
