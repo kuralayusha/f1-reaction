@@ -40,17 +40,4 @@ export const leaderboardActions = {
     if (error) throw error;
     return data[0] as LeaderboardEntry;
   },
-
-  // Get player's best score
-  getPlayerBestScore: async (playerName: string) => {
-    const { data, error } = await supabase
-      .from("leaderboard_f1")
-      .select("*")
-      .eq("player_name", playerName)
-      .order("reaction_time", { ascending: true })
-      .limit(1);
-
-    if (error) throw error;
-    return data[0] as LeaderboardEntry | null;
-  },
 };

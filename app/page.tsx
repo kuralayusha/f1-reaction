@@ -2,11 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import useSound from "use-sound";
-import {
-  supabase,
-  leaderboardActions,
-  LeaderboardEntry,
-} from "../lib/supabase";
+import { api } from "../lib/api";
+import { LeaderboardEntry } from "../lib/types";
 
 export default function Home() {
   const [gameState, setGameState] = useState<
@@ -133,20 +130,23 @@ export default function Home() {
     }
 
     const trimmedName = playerName.trim();
-    if (!reactionTime || !trimmedName) return;
+    if (!reactionTime || !trimmedName || !startTime) return;
 
     try {
-      await leaderboardActions.addScore({
+      await api.addScore({
         player_name: trimmedName,
         reaction_time: reactionTime,
         device_type: deviceType,
+        start_time: startTime,
+        end_time: startTime + reactionTime,
       });
 
       localStorage.setItem("f1_player_name", trimmedName);
       setShowModal(false);
       setGameState("idle");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving score:", error);
+      alert(error.message || "Failed to save score. Please try again.");
     }
   };
 
@@ -252,7 +252,7 @@ export default function Home() {
   // Load leaderboard data
   const loadLeaderboard = async () => {
     try {
-      const data = await leaderboardActions.getTopScores(10);
+      const data = await api.getTopScores(10);
       setLeaderboardData(data);
     } catch (error) {
       console.error("Error loading leaderboard:", error);
