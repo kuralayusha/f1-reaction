@@ -402,14 +402,17 @@ export default function Home() {
                   <input
                     type="text"
                     value={playerName}
-                    onChange={(e) => setPlayerName(e.target.value.trim())}
+                    onChange={(e) =>
+                      setPlayerName(e.target.value.trim().slice(0, 20))
+                    }
                     onKeyDown={handleKeyDown}
-                    placeholder="Enter your name"
+                    placeholder="Enter your name (max 20 chars)"
                     className="w-full p-2 rounded bg-gray-700 text-white text-base sm:text-lg"
                     autoFocus
                     required
                     minLength={1}
-                    aria-label="Name"
+                    maxLength={20}
+                    aria-label="Name (max 20 characters)"
                   />
 
                   <button
