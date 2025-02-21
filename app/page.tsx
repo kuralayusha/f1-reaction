@@ -27,9 +27,7 @@ export default function Home() {
     []
   );
   const [playerName, setPlayerName] = useState("");
-  const [linkedinUrl, setLinkedinUrl] = useState(
-    localStorage.getItem("f1_linkedin_url") || ""
-  );
+  const [linkedinUrl, setLinkedinUrl] = useState("");
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentLightRef = useRef(-1);
@@ -44,10 +42,14 @@ export default function Home() {
   } | null>(null);
   const [showAllScores, setShowAllScores] = useState(false);
 
-  // Load saved player name on mount
+  // Load saved data on mount (client-side only)
   useEffect(() => {
-    const savedName = localStorage.getItem("f1_player_name");
-    if (savedName) setPlayerName(savedName);
+    if (typeof window !== "undefined") {
+      const savedName = localStorage.getItem("f1_player_name");
+      const savedUrl = localStorage.getItem("f1_linkedin_url");
+      if (savedName) setPlayerName(savedName);
+      if (savedUrl) setLinkedinUrl(savedUrl);
+    }
   }, []);
 
   // Monitor state changes for debugging
@@ -455,7 +457,7 @@ export default function Home() {
                     }
                     onKeyDown={handleKeyDown}
                     placeholder="Enter your name (max 20 chars)"
-                    className="w-full p-2 rounded bg-gray-700 text-white text-base sm:text-lg"
+                    className="w-full p-2 rounded bg-gray-700 text-white text-[16px] sm:text-lg"
                     autoFocus
                     required
                     minLength={1}
@@ -467,8 +469,8 @@ export default function Home() {
                     type="text"
                     value={linkedinUrl}
                     onChange={(e) => setLinkedinUrl(e.target.value)}
-                    placeholder="LinkedIn URL (optional) - @https://www.linkedin.com/in/..."
-                    className="w-full p-2 rounded bg-gray-700 text-white text-base sm:text-lg"
+                    placeholder="LinkedIn URL (optional) - https://www.linkedin.com/in/..."
+                    className="w-full p-2 rounded bg-gray-700 text-white text-[16px] sm:text-lg"
                   /> */}
 
                   <button
