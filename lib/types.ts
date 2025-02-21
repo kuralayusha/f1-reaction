@@ -1,7 +1,8 @@
-export type LeaderboardEntry = {
-  id: number;
-  created_at: string;
-  player_name: string | null;
+export interface LeaderboardEntry {
+  id?: number;
+  player_name: string;
   reaction_time: number;
-  device_type: string | null;
-};
+  device_type: string;
+  created_at?: string;
+  linkedin_url?: string | null;
+}

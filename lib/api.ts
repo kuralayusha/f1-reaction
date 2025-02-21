@@ -25,12 +25,26 @@ export const api = {
     return response.json();
   },
 
+  getAllScores: async (): Promise<LeaderboardEntry[]> => {
+    const response = await fetch(`${API_BASE_URL}/api/all-scores`, {
+      headers: createHeaders({}),
+      credentials: "same-origin",
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to fetch all scores");
+    }
+    return response.json();
+  },
+
   addScore: async (entry: {
     player_name: string;
     reaction_time: number;
     device_type: string;
     start_time: number;
     end_time: number;
+    linkedin_url?: string | null;
   }): Promise<LeaderboardEntry> => {
     const response = await fetch(`${API_BASE_URL}/api/scores`, {
       method: "POST",

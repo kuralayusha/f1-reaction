@@ -5,6 +5,7 @@ import useSound from "use-sound";
 import { api } from "../lib/api";
 import { LeaderboardEntry } from "../lib/types";
 import { Toast } from "../components/Toast";
+import { AllScoresModal } from "../components/AllScoresModal";
 
 export default function Home() {
   const [gameState, setGameState] = useState<
@@ -26,6 +27,9 @@ export default function Home() {
     []
   );
   const [playerName, setPlayerName] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState(
+    localStorage.getItem("f1_linkedin_url") || ""
+  );
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const currentLightRef = useRef(-1);
@@ -38,6 +42,7 @@ export default function Home() {
     message: string;
     type: "error" | "success";
   } | null>(null);
+  const [showAllScores, setShowAllScores] = useState(false);
 
   // Load saved player name on mount
   useEffect(() => {
@@ -47,15 +52,15 @@ export default function Home() {
 
   // Monitor state changes for debugging
   useEffect(() => {
-    console.log("Game State Changed:", gameState);
+    //  console.log("Game State Changed:", gameState);
   }, [gameState]);
 
   useEffect(() => {
-    console.log("Lights Changed:", lights);
+    //  console.log("Lights Changed:", lights);
   }, [lights]);
 
   useEffect(() => {
-    console.log("Start Time:", startTime);
+    //  console.log("Start Time:", startTime);
   }, [startTime]);
 
   // Ekran boyutu değişikliğini takip et
@@ -78,7 +83,7 @@ export default function Home() {
   }, []);
 
   const startGame = useCallback(() => {
-    console.log("🎮 Starting Game...");
+    //  console.log("🎮 Starting Game...");
 
     // Cleanup operations
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -95,27 +100,27 @@ export default function Home() {
     setTimeout(() => {
       intervalRef.current = setInterval(() => {
         currentLightRef.current++;
-        console.log("🚥 Light Sequence:", currentLightRef.current);
+        //  console.log("🚥 Light Sequence:", currentLightRef.current);
 
         if (currentLightRef.current < 5) {
           setLights((prev) => {
             const newLights = [...prev];
             newLights[currentLightRef.current] = true;
-            console.log("💡 Setting light", currentLightRef.current, "to ON");
+            //  console.log("💡 Setting light", currentLightRef.current, "to ON");
             return newLights;
           });
         } else {
-          console.log("🔄 All lights on, preparing for random delay...");
+          //  console.log("🔄 All lights on, preparing for random delay...");
           if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
           }
 
-          const randomDelay = 1000 + Math.random() * 2000;
-          console.log("⏳ Setting random delay:", randomDelay.toFixed(2), "ms");
+          const randomDelay = 1000 + Math.random() * 3000;
+          //  console.log("⏳ Setting random delay:", randomDelay.toFixed(2), "ms");
 
           timeoutRef.current = setTimeout(() => {
-            console.log("🎯 Lights out! Starting reaction test...");
+            //  console.log("🎯 Lights out! Starting reaction test...");
             setLights([false, false, false, false, false]);
             setStartTime(performance.now());
             setGameState("waiting");
@@ -134,7 +139,18 @@ export default function Home() {
     }
 
     const trimmedName = playerName.trim();
+    const trimmedUrl = linkedinUrl.trim();
     if (!reactionTime || !trimmedName || !startTime) return;
+
+    // Validate LinkedIn URL if provided
+    if (trimmedUrl && !trimmedUrl.startsWith("https://www.linkedin.com/in/")) {
+      setToast({
+        message:
+          "Invalid LinkedIn URL format. It should start with https://www.linkedin.com/in/",
+        type: "error",
+      });
+      return;
+    }
 
     try {
       await api.addScore({
@@ -143,9 +159,14 @@ export default function Home() {
         device_type: deviceType,
         start_time: startTime,
         end_time: startTime + reactionTime,
+        linkedin_url: trimmedUrl || null,
       });
 
       localStorage.setItem("f1_player_name", trimmedName);
+      if (trimmedUrl) {
+        localStorage.setItem("f1_linkedin_url", trimmedUrl);
+      }
+
       setShowModal(false);
       setGameState("idle");
       setToast({
@@ -172,13 +193,13 @@ export default function Home() {
     if (showModal || showLeaderboard) return;
 
     if (!canPerformAction()) return;
-    console.log("👆 Click detected in state:", gameState);
+    //  console.log("👆 Click detected in state:", gameState);
 
     if (gameState === "idle") {
       startGame();
     } else if (gameState === "ready" || gameState === "waiting") {
       if (startTime === null || gameState === "ready") {
-        console.log("⚠️ Jump start detected!");
+        //  console.log("⚠️ Jump start detected!");
         if (timeoutRef.current) {
           clearTimeout(timeoutRef.current);
           timeoutRef.current = null;
@@ -194,7 +215,7 @@ export default function Home() {
       } else {
         const currentTime = performance.now();
         const reaction = currentTime - startTime;
-        console.log("✨ Reaction time:", reaction.toFixed(3), "ms");
+        //  console.log("✨ Reaction time:", reaction.toFixed(3), "ms");
         setReactionTime(reaction);
         setGameState("finished");
         setShowModal(true);
@@ -290,6 +311,17 @@ export default function Home() {
         className="absolute top-4 left-4 p-2 rounded-full bg-yellow-600 hover:bg-yellow-700 transition-colors"
       >
         🏆
+      </button>
+
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          // loadLeaderboard();
+          setShowAllScores(true);
+        }}
+        className="absolute top-16 left-4 p-2 rounded-full bg-purple-600 hover:bg-purple-700 transition-colors"
+      >
+        📊
       </button>
 
       <div className="max-w-md w-full space-y-6 sm:space-y-8">
@@ -431,6 +463,14 @@ export default function Home() {
                     aria-label="Name (max 20 characters)"
                   />
 
+                  {/* <input
+                    type="text"
+                    value={linkedinUrl}
+                    onChange={(e) => setLinkedinUrl(e.target.value)}
+                    placeholder="LinkedIn URL (optional) - @https://www.linkedin.com/in/..."
+                    className="w-full p-2 rounded bg-gray-700 text-white text-base sm:text-lg"
+                  /> */}
+
                   <button
                     onClick={saveScore}
                     disabled={!playerName.trim()}
@@ -527,6 +567,27 @@ export default function Home() {
           onClose={() => setToast(null)}
         />
       )}
+
+      {/* <div className="flex flex-col items-center gap-4 mt-4">
+        <button
+          onClick={() => setShowLeaderboard(true)}
+          className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded flex items-center gap-2"
+        >
+          <span>🏆</span>
+        </button>
+
+        <button
+          onClick={() => setShowAllScores(true)}
+          className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded flex items-center gap-2"
+        >
+          <span>📊</span>
+        </button>
+      </div> */}
+
+      <AllScoresModal
+        isOpen={showAllScores}
+        onClose={() => setShowAllScores(false)}
+      />
     </main>
   );
 }
